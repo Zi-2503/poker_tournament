@@ -1,0 +1,13 @@
+{
+  "name": "riverguard-host-authoritative-poker",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "房主权威 + MQTT 中继的纯前端德州扑克锦标赛",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\"",
+    "check:dom": "node tools/check-dom.mjs",
+    "start": "node tools/serve.mjs",
+    "serve": "npx --yes serve ."
+  }
+}

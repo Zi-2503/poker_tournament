@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1a14">
+  <title>RiverGuard</title>
+  <link rel="preload" href="./assets/fonts/OpenSans-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <style>
+    @font-face { font-family: "Open Sans"; src: url("./assets/fonts/OpenSans-Variable.ttf") format("truetype"); font-style: normal; font-weight: 300 800; font-display: swap; }
+    :root {
+      --font: "Open Sans", "Segoe UI", Arial, sans-serif;
+      --felt: #114b33;
+      --felt-dark: #0b3226;
+      --rail: #3a2417;
+      --ink: #eaf5ef;
+      --gold: #e8bc63;
+      --danger: #f4708b;
+      --ok: #6ee7b7;
+      --line: rgba(255, 255, 255, .13);
+      --seat-scale: 1;
+      --seat-w: calc(196px * var(--seat-scale));
+      --seat-h: calc(106px * var(--seat-scale));
+    }
+    * {
+      box-sizing: border-box;
+      font-family: var(--font);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+    }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.5;
+      background: radial-gradient(circle at 50% 0%, #16442f 0%, #0a1a13 55%, #060d09 100%);
+      -webkit-font-smoothing: antialiased;
+    }
+    .hidden { display: none !important; }
+    h1, h2 { margin: 0; font-weight: 800; }
+    p { margin: 0; }
+    button {
+      font: inherit;
+      color: inherit;
+      border: 0;
+      background: none;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    input {
+      font: inherit;
+      width: 100%;
+      padding: 12px 14px;
+      color: var(--ink);
+      background: rgba(0, 0, 0, .3);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      text-align: center;
+    }
+    input::placeholder { color: rgba(234, 245, 239, .38); }
+    input:focus { border-color: rgba(232, 188, 99, .7); }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button { appearance: none; margin: 0; }
+    input[type=number] { appearance: textfield; -moz-appearance: textfield; }
+
+    .screen { padding: 18px; max-width: 1280px; margin: 0 auto; }
+    .panel {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .05);
+    }
+    .btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 13px;
+      border-radius: 12px;
+      font-weight: 800;
+      color: #20180a;
+      background: var(--gold);
+    }
+    .btn.ghost { color: var(--gold); background: transparent; border: 1px solid rgba(232, 188, 99, .5); }
+    .btn.small { margin-top: 10px; padding: 9px; font-size: 13px; font-weight: 700; }
+
+    #boot { display: grid; place-items: center; min-height: 70vh; text-align: center; }
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border: 2px solid var(--gold);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hint {
+      max-width: 560px;
+      margin-top: 20px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0, 0, 0, .35);
+      font-size: 13px;
+      line-height: 1.8;
+      text-align: left;
+    }
+    .hint code {
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .1);
+      font-family: var(--font);
+    }
+
+    .brand {
+      margin: 5vh 0 26px;
+      font-size: clamp(26px, 5vw, 44px);
+      text-align: center;
+      letter-spacing: 2px;
+    }
+    .lobby-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); max-width: 760px; margin: 0 auto; }
+    .lobby-grid h2 { font-size: 16px; text-align: center; margin-bottom: 14px; }
+    .lobby-grid input { margin-top: 10px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 10px; }
+    #copyRoom { position: relative; display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; padding: 6px 0; text-align: left; }
+    #roomLabel { font-size: 20px; font-weight: 800; color: var(--gold); letter-spacing: 3px; }
+    .room-tooltip { position: absolute; top: 100%; left: 0; z-index: 10; padding: 7px 12px; border-radius: 8px; background: #07170f; box-shadow: 0 6px 18px #0008; color: var(--gold); white-space: nowrap; font-size: 14px; opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity .18s, transform .18s, visibility .18s; pointer-events: none; }
+    #copyRoom.started:hover .room-tooltip, #copyRoom.started:focus-visible .room-tooltip { opacity: 1; visibility: visible; transform: translateY(0); }
+    .blinds {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      font-size: 14px;
+      color: rgba(234, 245, 239, .7);
+    }
+    #blindTimer { color: var(--gold); font-weight: 700; }
+    #blindLevel { color: var(--gold); font-weight: 800; }
+    #handText { color: var(--ink); font-weight: 700; white-space: nowrap; }
+    .alert {
+      margin-top: 8px;
+      padding: 10px 14px;
+      border: 1px solid rgba(244, 112, 139, .4);
+      border-radius: 12px;
+      background: rgba(244, 112, 139, .12);
+      text-align: center;
+    }
+
+    .layout { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; margin-top: 10px; }
+    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+
+    .table-area { position: relative; width: 100%; aspect-ratio: 16 / 10; min-height: 340px; }
+    .table-center {
+      position: absolute;
+      left: 50%;
+      top: 44%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    #board { display: flex; gap: 8px; justify-content: center; }
+    .board-card { display: flex; }
+    #board.showdown { animation: board-flash .6s ease-out; }
+    @keyframes board-flash {
+      35% { filter: brightness(1.28) drop-shadow(0 0 12px rgba(232, 188, 99, .55)); }
+    }
+    .card-slot {
+      display: flex;
+      flex: 0 0 auto;
+      width: 52px;
+      height: 74px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, .04);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05);
+    }
+    .pot {
+      position: absolute;
+      left: 50%;
+      top: 57%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 2px 5px;
+      border-bottom: 1px solid rgba(232, 188, 99, .55);
+      color: var(--gold);
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .pot .chip-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px dashed rgba(232, 188, 99, .85);
+      background: #b23a4a;
+    }
+    .pot.pop { animation: pot-pop .38s ease-out; }
+    @keyframes pot-pop { 40% { transform: translate(-50%, -50%) scale(1.16); } }
+    #potText.reset { animation: pot-reset .35s ease-in-out; }
+    @keyframes pot-reset {
+      50% { opacity: .55; transform: translateY(-3px); }
+    }
+
+    .seats { position: absolute; inset: 0; }
+    .seat {
+      position: absolute;
+      width: var(--seat-w);
+      height: var(--seat-h);
+      margin: calc(var(--seat-h) / -2) 0 0 calc(var(--seat-w) / -2);
+      padding: calc(6px * var(--seat-scale));
+      border-radius: calc(16px * var(--seat-scale));
+      background: linear-gradient(180deg, rgba(21, 48, 36, .92), rgba(6, 17, 12, .94));
+      box-shadow: 0 12px 24px rgba(0, 0, 0, .45);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: calc(8px * var(--seat-scale));
+      text-align: center;
+      transition: opacity .3s ease, transform .3s ease, box-shadow .45s ease;
+    }
+    .seat.allin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: rgba(170, 25, 57, .45);
+      box-shadow: 0 0 0 2px rgba(240, 80, 110, .65), 0 0 30px rgba(255, 60, 100, .6);
+      pointer-events: none;
+      animation: allin-breathe 1.8s ease-in-out infinite;
+    }
+    @keyframes allin-breathe {
+      0%, 100% { opacity: .18; }
+      50% { opacity: 1; }
+    }
+    .seat > .who, .seat > .mini-cards { position: relative; }
+    .seat.allin .chips { color: #ffdfe8; }
+    .seat.turn { box-shadow: 0 0 0 2px rgba(232, 188, 99, .6), 0 12px 26px rgba(0, 0, 0, .5), 0 0 30px rgba(232, 188, 99, .28); }
+    .seat.me { background: linear-gradient(180deg, rgba(30, 66, 49, .94), rgba(10, 28, 20, .95)); }
+    .seat.out { opacity: .32; filter: grayscale(.8); }
+    .seat.folded { opacity: .5; filter: grayscale(.65); transition-delay: .12s; }
+    .seat.winner::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: 0 0 0 2px rgba(232, 188, 99, .75), 0 0 28px rgba(232, 188, 99, .55);
+      pointer-events: none;
+      animation: winner-breathe 1.3s ease-in-out infinite;
+    }
+    @keyframes winner-breathe { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+    .seat.arrive { animation: arrive .7s ease-out; }
+    @keyframes arrive {
+      0% { box-shadow: 0 0 0 0 rgba(232, 188, 99, .55); transform: scale(.97); }
+      60% { transform: scale(1.015); }
+      100% { box-shadow: 0 0 0 9px rgba(232, 188, 99, 0); transform: scale(1); }
+    }
+    .dealer-chip {
+      position: absolute;
+      top: calc(-7px * var(--seat-scale));
+      left: calc(-7px * var(--seat-scale));
+      width: calc(22px * var(--seat-scale));
+      height: calc(22px * var(--seat-scale));
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: calc(11px * var(--seat-scale));
+      font-weight: 800;
+      color: #20180a;
+      background: var(--gold);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+    }
+    .avatar {
+      width: calc(40px * var(--seat-scale));
+      height: calc(40px * var(--seat-scale));
+      margin: 0 auto;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: calc(16px * var(--seat-scale));
+      font-weight: 800;
+      color: #10352a;
+      background: linear-gradient(160deg, #cfe7dc, #8fbfae);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, .45);
+      flex: 0 0 auto;
+      transition: box-shadow .4s ease;
+    }
+    .who {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: calc(3px * var(--seat-scale));
+      min-width: 0;
+      flex: 0 0 auto;
+    }
+    .seat.turn .avatar { animation: avatar-pulse 1.4s ease-in-out infinite; }
+    @keyframes avatar-pulse { 50% { box-shadow: 0 0 0 5px rgba(232, 188, 99, .35); } }
+    .name { max-width: calc(84px * var(--seat-scale)); font-size: calc(12.5px * var(--seat-scale)); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chips { font-size: calc(12.5px * var(--seat-scale)); color: var(--gold); font-weight: 700; }
+    .chips.win { color: var(--ok); animation: chips-win .35s ease-out both; }
+    @keyframes chips-win {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: none; }
+    }
+    .chips.restore { animation: chips-back .3s ease-out both; }
+    @keyframes chips-back {
+      from { opacity: 0; transform: translateY(-7px); }
+      to { opacity: 1; transform: none; }
+    }
+    .mini-cards { display: flex; justify-content: flex-end; align-items: center; gap: calc(4px * var(--seat-scale)); flex: 1 1 auto; }
+    .bet {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by)));
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .6);
+      border: 1px solid rgba(232, 188, 99, .5);
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .bet.fly { animation: chip-fly .45s cubic-bezier(.2, .9, .3, 1) both; }
+    @keyframes chip-fly {
+      from { opacity: 0; transform: translate(calc(-50% - var(--bx) * 1.6), calc(-50% - var(--by) * 1.6)) scale(.5); }
+      to { opacity: 1; }
+    }
+    .bet.clear { animation: chip-clear .45s ease-in both; }
+    @keyframes chip-clear {
+      to { opacity: 0; transform: translate(calc(-50% + var(--bx) * .35), calc(-50% + var(--by) * .35)) scale(.7); }
+    }
+
+    .card {
+      position: relative;
+      display: inline-block;
+      overflow: hidden;
+      width: 52px;
+      height: 74px;
+      border-radius: 7px;
+      background: #f7fafc;
+      color: #0f172a;
+      font-weight: 800;
+      line-height: 1;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .65);
+    }
+    .card .rank { position: absolute; top: 4px; left: 5px; font-size: 28px; font-weight: 700; }
+    .card .pip { position: absolute; right: 0; bottom: 0; transform: translate(25%, 25%); font-size: 50px; opacity: .92; }
+    .card .rank, .card .pip { font-family: var(--font); font-weight: 700; }
+    .card.red { color: #be123c; }
+    .card.back {
+      border: 2px solid #fff;
+      background:
+        radial-gradient(circle at 50% 38%, rgba(255, 255, 255, .18), transparent 62%),
+        repeating-linear-gradient(45deg, #1b2f5e, #1b2f5e 6px, #24397a 6px, #24397a 12px);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, .45), inset 0 0 10px rgba(0, 0, 0, .35);
+    }
+    .card.small {
+      width: calc(44px * var(--seat-scale));
+      height: calc(64px * var(--seat-scale));
+      flex: 0 0 auto;
+      border-radius: calc(5px * var(--seat-scale));
+      box-shadow: 0 3px 8px rgba(0, 0, 0, .4);
+    }
+    .card.small .rank { top: calc(3px * var(--seat-scale)); left: calc(3px * var(--seat-scale)); font-size: calc(24px * var(--seat-scale)); }
+    .card.small .pip { font-size: calc(43px * var(--seat-scale)); }
+    .card.new { animation: flip-in .38s ease-out both; }
+    .card.small.shown { box-shadow: 0 0 0 2px rgba(232, 188, 99, .55), 0 3px 10px rgba(0, 0, 0, .45); }
+    @keyframes flip-in {
+      from { opacity: 0; transform: rotateY(85deg) scale(.85); }
+      to { opacity: 1; transform: rotateY(0) scale(1); }
+    }
+    .card.deal { animation: deal-in .42s cubic-bezier(.2, .9, .3, 1) both; }
+    @keyframes deal-in {
+      from { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.55) rotate(-14deg); }
+      to { opacity: 1; transform: translate(0, 0) scale(1) rotate(0); }
+    }
+    .card.discard { animation: fold-away .45s ease-in both; }
+    @keyframes fold-away {
+      to { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(24deg) scale(.8); }
+    }
+    .card.clear { animation: card-clear .35s ease-in both; }
+    @keyframes card-clear {
+      to { opacity: 0; transform: translateY(-26px) scale(.82) rotate(-6deg); }
+    }
+
+    aside { display: grid; gap: 12px; align-content: start; }
+    .side-panel {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0, 0, 0, .28);
+    }
+    .side-panel h2 { font-size: 13px; letter-spacing: 1px; color: rgba(234, 245, 239, .8); }
+    #log { max-height: 320px; overflow-y: auto; margin-top: 10px; display: grid; gap: 7px; font-size: 12.5px; color: rgba(234, 245, 239, .62); }
+    #log p { display: flex; gap: 8px; }
+    #log .no { color: rgba(234, 245, 239, .3); }
+    #log .cards { color: var(--ink); font-weight: 700; }
+    #log::-webkit-scrollbar { width: 5px; }
+    #log::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .16); border-radius: 9px; }
+    .rank-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); font-size: 13px; }
+    .rank-row b { color: var(--gold); margin-right: 6px; }
+    #gameOver .btn:first-child { margin-top: 0; }
+
+    #actions .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+    #actions { margin-top: 14px; }
+    #actions button {
+      flex: 1 1 0;
+      min-width: 72px;
+      padding: 11px 8px;
+      border-radius: 12px;
+      font-weight: 800;
+      white-space: normal;
+      line-height: 1.25;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .07);
+    }
+    #actions button[data-action="FOLD"] { color: var(--danger); border-color: rgba(244, 112, 139, .35); }
+    #actions button[data-action="RAISE"] { color: var(--gold); border-color: rgba(232, 188, 99, .45); background: rgba(232, 188, 99, .14); }
+    #actions button[data-action="ALL_IN"] { color: #fff; background: #b83353; border-color: #b83353; }
+    #raiseInput { flex: 0 0 92px; width: 92px; padding: 10px 6px; }
+    #actionHint { margin-top: 8px; font-size: 11.5px; text-align: center; color: rgba(234, 245, 239, .45); }
+
+    .toast {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      max-width: 88vw;
+      padding: 11px 18px;
+      border-radius: 12px;
+      background: rgba(6, 16, 12, .96);
+      border: 1px solid rgba(110, 231, 183, .35);
+      color: var(--ok);
+      font-size: 13.5px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
+    }
+    .toast.bad { border-color: rgba(244, 112, 139, .45); color: var(--danger); }
+
+    @media (max-width: 720px) {
+      .table-area { aspect-ratio: 4 / 5; }
+      .card { width: 40px; height: 58px; }
+      .card .rank { font-size: 23px; }
+      .card .suit { font-size: 15px; }
+      .card-slot { width: 40px; height: 58px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast hidden"></div>
+
+  <section id="boot" class="screen">
+    <div>
+      <div class="spinner"></div>
+      <div id="bootHint" class="hint hidden"></div>
+    </div>
+  </section>
+
+  <section id="lobby" class="screen hidden">
+    <h1 class="brand">RiverGuard</h1>
+    <div class="lobby-grid">
+      <form id="createForm" class="panel">
+        <h2>Create Room</h2>
+        <input name="nickname" required maxlength="16" placeholder="Nickname" aria-label="Nickname">
+        <div class="grid-2">
+          <input name="startingChips" type="number" min="1000" max="10000000" value="10000" required placeholder="Starting chips" aria-label="Starting chips" title="Starting chips">
+          <input name="blindLevelMinutes" type="number" min="1" max="120" value="10" required placeholder="Blind level (min)" aria-label="Blind level duration in minutes" title="Blind level duration in minutes">
+        </div>
+        <button class="btn" type="submit">Create Room</button>
+        <button id="restoreButton" class="btn ghost small hidden" type="button">Restore Room</button>
+      </form>
+      <form id="joinForm" class="panel">
+        <h2>Join Room</h2>
+        <input name="nickname" required maxlength="16" placeholder="Nickname" aria-label="Nickname">
+        <input name="roomCode" required minlength="6" maxlength="6" autocomplete="off" placeholder="Room code" aria-label="Room code">
+        <button class="btn ghost" type="submit">Join Room</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="table" class="screen hidden">
+    <div class="topbar">
+      <button id="copyRoom" type="button">
+        <span id="roomLabel"></span>
+        <span id="blindInfo" class="blinds hidden"><span id="handText"></span><span id="blindLevel"></span><span id="blindText"></span><span id="blindTimer"></span></span>
+        <span id="roomTooltip" class="room-tooltip" role="tooltip"></span>
+      </button>
+    </div>
+    <div id="hostAlert" class="alert hidden">Host disconnected</div>
+
+    <div class="layout">
+      <main>
+        <div class="table-area" id="tableArea">
+          <div class="table-center"><div id="board"></div></div>
+          <div class="pot" id="pot"><span class="chip-icon"></span><span id="potText">0</span></div>
+          <div class="seats" id="seats"></div>
+        </div>
+        <section id="actions" class="side-panel hidden">
+          <div class="row">
+            <button data-action="FOLD">Fold</button>
+            <button id="checkCall" data-action="CHECK">Check</button>
+            <input id="raiseInput" type="number" inputmode="numeric" aria-label="Raise to">
+            <button data-action="RAISE">Raise</button>
+            <button data-action="ALL_IN">All-in</button>
+          </div>
+          <p id="actionHint"></p>
+        </section>
+        <section id="gameOver" class="side-panel hidden">
+          <button id="playAgain" class="btn hidden" type="button">Play Again</button>
+          <button id="backHome" class="btn ghost" type="button">Leave Room</button>
+        </section>
+      </main>
+
+      <aside>
+        <section id="lobbyPanel" class="side-panel hidden">
+          <h2>Waiting for Players</h2>
+          <p id="seatCount" style="margin-top:8px;font-size:13px;color:rgba(234,245,239,.6)"></p>
+          <button id="startButton" class="btn" type="button">Start Game</button>
+        </section>
+        <section class="side-panel">
+          <h2>Hand History</h2>
+          <div id="log"></div>
+        </section>
+        <section id="rankPanel" class="side-panel hidden">
+          <h2>Final Rankings</h2>
+          <div id="rankings" style="margin-top:8px"></div>
+        </section>
+      </aside>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      window.__riverguardStage = "module-loading";
+      setTimeout(function () {
+        if (window.__riverguardStage === "ready") return;
+        var box = document.getElementById("bootHint");
+        if (!box) return;
+        box.innerHTML = location.protocol === "file:"
+          ? "Run <code>node tools/serve.mjs</code>, then open <code>http://localhost:8080</code>."
+          : "Unable to load the page. Please refresh and try again.";
+        box.classList.remove("hidden");
+      }, 5000);
+    })();
+  </script>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

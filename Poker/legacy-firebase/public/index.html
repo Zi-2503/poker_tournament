@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071c16">
+  <title>RiverGuard · 私人锦标赛</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { felt: "#0d4a37", ink: "#e9f4ef", gold: "#e8bc63" },
+          boxShadow: { glow: "0 0 32px rgba(232,188,99,.18)" }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { background: radial-gradient(circle at 50% 20%, #123c31, #061611 66%); min-height: 100vh; }
+    .noise { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E"); }
+    .card { width: 3.25rem; height: 4.6rem; border-radius: .55rem; background: #f8fafc; color: #101827; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; box-shadow: 0 5px 14px #0005; border: 1px solid #ffffffbb; line-height: 1; }
+    .card.red { color: #be123c; }
+    .card.back { background: repeating-linear-gradient(45deg,#172554,#172554 6px,#1e3a8a 6px,#1e3a8a 12px); border: 3px solid white; }
+    .seat.turn { box-shadow: 0 0 0 2px #f5cf78, 0 0 28px #f5cf7844; }
+    .scrollbar::-webkit-scrollbar { width: 5px; }.scrollbar::-webkit-scrollbar-thumb { background:#ffffff22;border-radius:9px; }
+  </style>
+</head>
+<body class="text-ink antialiased noise">
+  <div id="toast" class="fixed right-4 top-4 z-50 hidden max-w-sm rounded-xl border border-white/10 bg-slate-950/95 px-4 py-3 text-sm shadow-2xl"></div>
+
+  <main class="mx-auto min-h-screen max-w-7xl p-4 sm:p-6">
+    <section id="bootView" class="grid min-h-[80vh] place-items-center">
+      <div class="text-center"><div class="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-gold border-t-transparent"></div><p class="text-white/60">正在建立安全连接…</p></div>
+    </section>
+
+    <section id="setupView" class="hidden min-h-[85vh] items-center justify-center">
+      <div class="w-full max-w-5xl">
+        <header class="mb-10 text-center">
+          <p class="mb-3 text-xs font-bold uppercase tracking-[.35em] text-gold">Server-authoritative poker</p>
+          <h1 class="text-4xl font-black tracking-tight sm:text-6xl">River<span class="text-gold">Guard</span></h1>
+          <p class="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/55">底牌隔离、服务端洗牌与结算的私人德州扑克锦标赛。浏览器永远拿不到牌堆或其他玩家未公开的底牌。</p>
+        </header>
+        <div id="configWarning" class="mb-6 hidden rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">请先在 <code>public/index.html</code> 中填写你的 Firebase Web App 配置。</div>
+        <div class="grid gap-5 md:grid-cols-2">
+          <form id="createForm" class="rounded-3xl border border-white/10 bg-white/[.055] p-6 shadow-glow backdrop-blur sm:p-8">
+            <h2 class="text-xl font-bold">创建私人房间</h2><p class="mt-1 text-sm text-white/45">你将成为房主，并获得 6 位房间码。</p>
+            <label class="mt-6 block text-xs font-semibold text-white/60">昵称<input name="nickname" required maxlength="16" autocomplete="nickname" class="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-gold/70" placeholder="例如：河牌猎手"></label>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <label class="block text-xs font-semibold text-white/60">初始筹码<input name="startingChips" type="number" min="1000" max="10000000" value="10000" required class="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-gold/70"></label>
+              <label class="block text-xs font-semibold text-white/60">升盲（分钟）<input name="blindLevelMinutes" type="number" min="1" max="120" value="10" required class="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-gold/70"></label>
+            </div>
+            <button class="mt-6 w-full rounded-xl bg-gold px-5 py-3 font-extrabold text-slate-950 transition hover:bg-amber-300 disabled:opacity-40">创建房间</button>
+          </form>
+          <form id="joinForm" class="rounded-3xl border border-white/10 bg-white/[.055] p-6 backdrop-blur sm:p-8">
+            <h2 class="text-xl font-bold">加入锦标赛</h2><p class="mt-1 text-sm text-white/45">输入朋友分享的房间码。</p>
+            <label class="mt-6 block text-xs font-semibold text-white/60">昵称<input name="nickname" required maxlength="16" autocomplete="nickname" class="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-gold/70" placeholder="你的桌上昵称"></label>
+            <label class="mt-4 block text-xs font-semibold text-white/60">6 位房间码<input name="roomId" required minlength="6" maxlength="6" autocomplete="off" class="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center font-mono text-xl uppercase tracking-[.3em] outline-none focus:border-gold/70" placeholder="ABC234"></label>
+            <button class="mt-6 w-full rounded-xl border border-gold/50 px-5 py-3 font-extrabold text-gold transition hover:bg-gold/10 disabled:opacity-40">加入房间</button>
+          </form>
+        </div>
+        <p class="mt-6 text-center text-xs text-white/30">匿名身份仅用于认证与牌权校验；请勿清除浏览器站点数据，否则会生成新身份。</p>
+      </div>
+    </section>
+
+    <section id="gameView" class="hidden">
+      <header class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+        <div><span class="text-xs text-white/40">房间</span><button id="copyRoom" class="ml-2 font-mono text-xl font-black tracking-[.18em] text-gold" title="复制房间码"></button></div>
+        <div class="flex flex-wrap items-center gap-4 text-sm">
+          <span>盲注 <strong id="blindText" class="text-gold">—</strong></span>
+          <span>下次升盲 <strong id="timerText">—</strong></span>
+          <span id="connectionText" class="rounded-full bg-emerald-400/10 px-3 py-1 text-xs text-emerald-300">● 已连接</span>
+        </div>
+      </header>
+
+      <div class="grid gap-4 xl:grid-cols-[1fr_19rem]">
+        <div>
+          <section class="relative min-h-[34rem] overflow-hidden rounded-[2.5rem] border-[10px] border-[#3b2417] bg-felt p-5 shadow-2xl sm:p-8">
+            <div class="pointer-events-none absolute inset-3 rounded-[1.8rem] border border-white/10"></div>
+            <div id="playersGrid" class="relative z-10 grid grid-cols-2 gap-3 sm:grid-cols-3"></div>
+            <div class="relative z-10 mx-auto my-6 max-w-xl rounded-[2rem] border border-white/10 bg-black/15 px-4 py-6 text-center shadow-inner">
+              <div class="mb-3 flex items-center justify-center gap-2 text-xs uppercase tracking-widest text-white/45"><span id="stageText">大厅</span><span>·</span><span>底池 <b id="potText" class="text-gold">0</b></span></div>
+              <div id="boardCards" class="flex min-h-[4.6rem] items-center justify-center gap-2"></div>
+              <p id="turnText" class="mt-4 text-sm text-white/60">等待房主开始</p>
+            </div>
+            <div class="relative z-10 text-center">
+              <p class="mb-2 text-xs font-bold uppercase tracking-[.22em] text-white/45">你的底牌</p>
+              <div id="myCards" class="flex min-h-[4.6rem] justify-center gap-2"></div>
+              <p id="myState" class="mt-2 text-xs text-white/50"></p>
+            </div>
+          </section>
+
+          <section id="lobbyControls" class="mt-4 hidden rounded-2xl border border-white/10 bg-white/[.04] p-4 text-center">
+            <p id="lobbyHint" class="text-sm text-white/60"></p>
+            <button id="startButton" class="mt-3 hidden rounded-xl bg-gold px-8 py-3 font-black text-slate-950 hover:bg-amber-300">开始锦标赛</button>
+          </section>
+
+          <section id="actionControls" class="mt-4 hidden rounded-2xl border border-white/10 bg-white/[.04] p-4">
+            <div class="flex flex-wrap items-center justify-center gap-2">
+              <button data-action="FOLD" class="action rounded-xl border border-rose-400/30 px-5 py-3 font-bold text-rose-300 hover:bg-rose-400/10">弃牌</button>
+              <button id="checkCallButton" data-action="CHECK" class="action rounded-xl border border-white/15 px-5 py-3 font-bold hover:bg-white/10">过牌</button>
+              <div class="flex items-center overflow-hidden rounded-xl border border-gold/30 bg-black/20"><span class="px-3 text-xs text-white/45">加注到</span><input id="raiseAmount" type="number" class="w-28 bg-transparent px-2 py-3 text-right font-mono outline-none"><button data-action="RAISE" class="action bg-gold/15 px-4 py-3 font-bold text-gold hover:bg-gold/25">加注</button></div>
+              <button data-action="ALL_IN" class="action rounded-xl bg-rose-600 px-5 py-3 font-black text-white hover:bg-rose-500">全下</button>
+            </div>
+            <p id="actionHint" class="mt-2 text-center text-xs text-white/40"></p>
+          </section>
+
+          <section id="lastResult" class="mt-4 hidden rounded-2xl border border-gold/20 bg-gold/[.06] p-4"></section>
+        </div>
+
+        <aside class="grid content-start gap-4">
+          <section class="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <h2 class="mb-3 text-sm font-bold">动态</h2><div id="activityLog" class="scrollbar max-h-60 space-y-2 overflow-y-auto text-xs text-white/55"></div>
+          </section>
+          <section id="rankingPanel" class="hidden rounded-2xl border border-gold/20 bg-black/20 p-4"><h2 class="mb-3 text-sm font-bold text-gold">最终排名</h2><div id="rankings"></div></section>
+          <section class="rounded-2xl border border-white/10 bg-black/20 p-4 text-xs leading-5 text-white/40"><b class="text-white/70">安全说明</b><br>所有动作都由云函数在 Firestore 事务中验证。当前底牌仅从你的私有文档读取；牌堆与未来公共牌从不下发浏览器。</section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+    import { getFirestore, collection, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js";
+
+    // Replace these values with Firebase Console → Project settings → Your apps → Web app.
+    const firebaseConfig = {
+      apiKey: "AIzaSyDF0Sk00Nr18dAT20TgRLc68gGeoypspfo",
+      authDomain: "poker-tournament-4103f.firebaseapp.com",
+      projectId: "poker-tournament-4103f",
+      storageBucket: "poker-tournament-4103f.firebasestorage.app",
+      messagingSenderId: "559640890139",
+      appId: "1:559640890139:web:47f38173ccda9778a3e1be"
+    };
+    const FUNCTIONS_REGION = "asia-east2";
+
+    const $ = (selector) => document.querySelector(selector);
+    const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
+    const setupView = $("#setupView");
+    const gameView = $("#gameView");
+    let auth, db, functions, user, roomId, room = null, players = [], privateCards = [];
+    let unsubscribers = [], timerHandle = null, lastTickMinute = -1, nextHandScheduled = null;
+
+    function toast(message, bad = false) {
+      const node = $("#toast"); node.textContent = message; node.className = `fixed right-4 top-4 z-50 max-w-sm rounded-xl border px-4 py-3 text-sm shadow-2xl ${bad ? "border-rose-400/30 bg-rose-950/95 text-rose-100" : "border-emerald-400/30 bg-slate-950/95 text-emerald-100"}`;
+      clearTimeout(node._timer); node._timer = setTimeout(() => node.classList.add("hidden"), 3500);
+    }
+    function errorText(error) { return (error?.message || "操作失败").replace(/^FirebaseError:\s*/, ""); }
+    function setBusy(form, busy) { form.querySelectorAll("button,input").forEach((node) => node.disabled = busy); }
+    async function call(name, data) { return (await httpsCallable(functions, name)(data)).data; }
+
+    function cardHtml(card) {
+      if (!card) return '<span class="card back"></span>';
+      const ranks = {T:"10",J:"J",Q:"Q",K:"K",A:"A"};
+      const suits = {C:"♣",D:"♦",H:"♥",S:"♠"};
+      const red = card[1] === "D" || card[1] === "H";
+      return `<span class="card ${red ? "red" : ""}"><span>${ranks[card[0]] || card[0]}</span><span class="mt-1 text-xl">${suits[card[1]]}</span></span>`;
+    }
+    const money = (value) => Number(value || 0).toLocaleString("zh-CN");
+    const stageName = (stage) => ({lobby:"大厅",preflop:"翻牌前",flop:"翻牌",turn:"转牌",river:"河牌",hand_complete:"本手结束",finished:"已结束"}[stage] || stage);
+
+    function render() {
+      if (!room) return;
+      $("#copyRoom").textContent = roomId;
+      $("#blindText").textContent = `${money(room.blinds?.small)}/${money(room.blinds?.big)} · L${(room.blinds?.level || 0) + 1}`;
+      $("#stageText").textContent = room.handNo ? `第 ${room.handNo} 手 · ${stageName(room.stage)}` : "大厅";
+      $("#potText").textContent = money(room.pot);
+      $("#boardCards").innerHTML = (room.board || []).map(cardHtml).join("") || '<span class="text-sm text-white/25">公共牌将在服务端发出</span>';
+      $("#myCards").innerHTML = privateCards.length ? privateCards.map(cardHtml).join("") : '<span class="text-sm text-white/25">等待发牌</span>';
+
+      const byId = Object.fromEntries(players.map((player) => [player.uid, player]));
+      const me = byId[user.uid];
+      $("#playersGrid").innerHTML = players.map((player) => {
+        const badges = [player.isDealer ? "D" : "", player.isSmallBlind ? "SB" : "", player.isBigBlind ? "BB" : ""].filter(Boolean).map((item) => `<span class="rounded bg-white/10 px-1.5 py-.5 text-[10px]">${item}</span>`).join("");
+        const state = player.status === "eliminated" ? "已淘汰" : player.folded && room.status === "running" ? "已弃牌" : player.allIn ? "全下" : "";
+        const shown = room.lastHandResult?.showdownCards?.[player.uid] || null;
+        return `<article class="seat ${room.toActUid === player.uid ? "turn" : ""} rounded-2xl border border-white/10 bg-black/25 p-3 ${player.status === "eliminated" ? "opacity-35" : ""}">
+          <div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="truncate text-sm font-bold">${esc(player.nickname)}${player.uid === user.uid ? ' <span class="text-gold">(你)</span>' : ""}</p><p class="mt-1 font-mono text-xs text-gold">${money(player.chips)}</p></div><div class="flex gap-1">${badges}</div></div>
+          <div class="mt-2 flex items-center justify-between text-[11px] text-white/45"><span>${state}</span><span>${player.roundBet ? `下注 ${money(player.roundBet)}` : ""}</span></div>
+          ${shown ? `<div class="mt-2 text-xs text-white/55">${shown.map((c) => esc(c)).join(" · ")}</div>` : ""}
+        </article>`;
+      }).join("");
+
+      if (room.status === "lobby") $("#turnText").textContent = "等待房主开始锦标赛";
+      else if (room.status === "finished") $("#turnText").textContent = "锦标赛已结束";
+      else $("#turnText").textContent = room.toActUid ? `等待 ${byId[room.toActUid]?.nickname || "玩家"} 行动` : "服务端正在结算";
+      $("#myState").textContent = me ? `筹码 ${money(me.chips)}${me.roundBet ? ` · 本轮下注 ${money(me.roundBet)}` : ""}` : "";
+
+      $("#lobbyControls").classList.toggle("hidden", room.status !== "lobby");
+      const isHost = room.hostId === user.uid;
+      $("#lobbyHint").textContent = isHost ? `已有 ${players.length} 位玩家，至少 2 人可开始` : "等待房主开始；请把房间码分享给其他玩家";
+      $("#startButton").classList.toggle("hidden", !isHost);
+      $("#startButton").disabled = players.length < 2;
+
+      const myTurn = room.status === "running" && room.toActUid === user.uid && me && !me.folded && !me.allIn;
+      $("#actionControls").classList.toggle("hidden", !myTurn);
+      if (myTurn) {
+        const toCall = Math.max(0, (room.currentBet || 0) - (me.roundBet || 0));
+        const checkCall = $("#checkCallButton");
+        checkCall.dataset.action = toCall ? "CALL" : "CHECK";
+        checkCall.textContent = toCall ? `跟注 ${money(Math.min(toCall, me.chips))}` : "过牌";
+        const minTarget = (room.currentBet || 0) + (room.minRaise || room.blinds.big);
+        const maxTarget = (me.roundBet || 0) + me.chips;
+        $("#raiseAmount").min = Math.min(minTarget, maxTarget); $("#raiseAmount").max = maxTarget; $("#raiseAmount").value = Math.min(minTarget, maxTarget);
+        $("#actionHint").textContent = `需跟注 ${money(toCall)} · 最小加注到 ${money(minTarget)} · 最多 ${money(maxTarget)}`;
+      }
+
+      $("#activityLog").innerHTML = [...(room.actionLog || [])].reverse().map((item) => `<p><span class="mr-2 text-white/25">#${item.handNo}</span>${esc(item.text)}</p>`).join("");
+      renderLastResult(byId);
+      const rankings = room.rankings || [];
+      $("#rankingPanel").classList.toggle("hidden", rankings.length === 0);
+      $("#rankings").innerHTML = rankings.map((entry) => `<div class="flex justify-between border-b border-white/5 py-2 text-sm"><span><b class="mr-2 text-gold">#${entry.rank}</b>${esc(entry.nickname)}</span><span class="font-mono text-white/50">${money(entry.chips)}</span></div>`).join("");
+      if (room.status === "running" && room.stage === "hand_complete" && nextHandScheduled !== room.handNo) {
+        nextHandScheduled = room.handNo;
+        setTimeout(() => call("dealNextHand", { roomId }).catch(() => {
+          nextHandScheduled = null;
+          setTimeout(render, 2000);
+        }), 2200);
+      }
+      updateTimer();
+    }
+
+    function renderLastResult(byId) {
+      const result = room.lastHandResult, panel = $("#lastResult");
+      if (!result) { panel.classList.add("hidden"); return; }
+      panel.classList.remove("hidden");
+      const pots = (result.pots || []).map((pot, i) => `${i ? `边池 ${i}` : "主池"} ${money(pot.amount)} → ${(pot.winners || []).map((uid) => esc(byId[uid]?.nickname || uid)).join(" / ")}`).join("；");
+      const hands = Object.entries(result.evaluations || {}).map(([uid, evaluation]) => `${esc(byId[uid]?.nickname || uid)}：${esc(evaluation.name)}`).join(" · ");
+      panel.innerHTML = `<p class="text-xs font-bold uppercase tracking-widest text-gold">上一手 #${result.handNo}</p><p class="mt-2 text-sm">${pots}</p>${hands ? `<p class="mt-1 text-xs text-white/50">${hands}</p>` : ""}`;
+    }
+
+    function updateTimer() {
+      if (!room?.nextBlindAt?.toDate || room.status !== "running") { $("#timerText").textContent = "—"; return; }
+      const seconds = Math.max(0, Math.ceil((room.nextBlindAt.toDate().getTime() - Date.now()) / 1000));
+      $("#timerText").textContent = `${String(Math.floor(seconds / 60)).padStart(2,"0")}:${String(seconds % 60).padStart(2,"0")}`;
+      if (seconds === 0 && lastTickMinute !== Math.floor(Date.now() / 60000)) {
+        lastTickMinute = Math.floor(Date.now() / 60000); call("tickRoom", { roomId }).catch(() => {});
+      }
+    }
+
+    function enterRoom(id) {
+      roomId = id; room = null; players = []; privateCards = [];
+      setupView.classList.add("hidden"); gameView.classList.remove("hidden");
+      unsubscribers.forEach((fn) => fn()); unsubscribers = [];
+      unsubscribers.push(onSnapshot(doc(db, "rooms", id), (snap) => { room = snap.data(); $("#connectionText").textContent = "● 已连接"; render(); }, (error) => { $("#connectionText").textContent = "● 连接失败"; toast(errorText(error), true); }));
+      unsubscribers.push(onSnapshot(query(collection(db, "rooms", id, "players"), orderBy("seat")), (snap) => { players = snap.docs.map((item) => item.data()); render(); }));
+      unsubscribers.push(onSnapshot(doc(db, "rooms", id, "private_cards", user.uid), (snap) => { privateCards = snap.data()?.cards || []; render(); }));
+      clearInterval(timerHandle); timerHandle = setInterval(updateTimer, 1000);
+    }
+
+    $("#createForm").addEventListener("submit", async (event) => {
+      event.preventDefault(); const form = event.currentTarget, data = Object.fromEntries(new FormData(form)); setBusy(form, true);
+      try { const result = await call("createRoom", { nickname: data.nickname, startingChips: Number(data.startingChips), blindLevelMinutes: Number(data.blindLevelMinutes) }); enterRoom(result.roomId); }
+      catch (error) { toast(errorText(error), true); } finally { setBusy(form, false); }
+    });
+    $("#joinForm").addEventListener("submit", async (event) => {
+      event.preventDefault(); const form = event.currentTarget, data = Object.fromEntries(new FormData(form)); setBusy(form, true);
+      try { const result = await call("joinRoom", { nickname: data.nickname, roomId: data.roomId.toUpperCase() }); enterRoom(result.roomId); }
+      catch (error) { toast(errorText(error), true); } finally { setBusy(form, false); }
+    });
+    $("#startButton").addEventListener("click", async () => { try { $("#startButton").disabled = true; await call("startTournament", { roomId }); } catch (error) { toast(errorText(error), true); } finally { $("#startButton").disabled = false; } });
+    $("#actionControls").addEventListener("click", async (event) => {
+      const button = event.target.closest("button.action"); if (!button) return;
+      const action = button.dataset.action, amount = action === "RAISE" ? Number($("#raiseAmount").value) : undefined;
+      $("#actionControls").querySelectorAll("button,input").forEach((node) => node.disabled = true);
+      try { await call("playerAction", { roomId, action, amount }); } catch (error) { toast(errorText(error), true); }
+      finally { $("#actionControls").querySelectorAll("button,input").forEach((node) => node.disabled = false); }
+    });
+    $("#copyRoom").addEventListener("click", async () => { await navigator.clipboard.writeText(roomId); toast("房间码已复制"); });
+
+    async function boot() {
+      const configured = !Object.values(firebaseConfig).some((value) => String(value).startsWith("YOUR_"));
+      $("#bootView").classList.add("hidden"); setupView.classList.remove("hidden"); setupView.classList.add("flex");
+      if (!configured) { $("#configWarning").classList.remove("hidden"); $("#createForm").querySelector("button").disabled = true; $("#joinForm").querySelector("button").disabled = true; return; }
+      const app = initializeApp(firebaseConfig); auth = getAuth(app); db = getFirestore(app); functions = getFunctions(app, FUNCTIONS_REGION);
+      onAuthStateChanged(auth, (current) => { if (current) user = current; });
+      if (!auth.currentUser) await signInAnonymously(auth);
+      user = auth.currentUser;
+    }
+    boot().catch((error) => { $("#bootView").classList.add("hidden"); setupView.classList.remove("hidden"); setupView.classList.add("flex"); toast(errorText(error), true); });
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "firebase-authoritative-poker-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test test/poker.test.js",
+    "serve": "firebase emulators:start --only functions,firestore,auth,hosting",
+    "deploy": "firebase deploy --only functions,firestore,hosting"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^9.15.0"
+  }
+}

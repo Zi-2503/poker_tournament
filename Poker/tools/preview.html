@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>preview</title>
+</head>
+<body>
+  <script type="module">
+    const source = await (await fetch("../index.html")).text();
+    const style = source.match(/<style>([\s\S]*?)<\/style>/)[1].replaceAll("./assets/", "../assets/");
+    const markup = source.match(/<body>([\s\S]*?)<script/)[1];
+    document.head.insertAdjacentHTML("beforeend", `<style>${style}</style>`);
+    document.body.innerHTML = markup;
+
+    const ui = await import("../js/ui.js");
+    if (new URLSearchParams(location.search).has("noanim")) {
+      document.head.insertAdjacentHTML("beforeend", "<style>*{animation:none !important;transition:none !important}</style>");
+    }
+
+    const params = new URLSearchParams(location.search);
+    const count = Math.max(2, Math.min(9, Number(params.get("players")) || 5));
+    const pool = ["Alex", "Blake", "Casey", "Lisa", "Evan", "Finn", "George", "LongNickname", "Tommy"];
+    const names = pool.slice(0, count);
+    const players = names.map((name, index) => ({
+      id: `p${index}`,
+      name,
+      seat: index,
+      chips: [8200, 5400, 12800, 3100, 6700, 9100, 4300, 6000, 7800][index],
+      status: "active",
+      connected: true,
+      isHost: index === 0,
+      folded: index === 2,
+      allIn: index === 4,
+      roundBet: [300, 300, 0, 0, 900][index],
+      contributed: [300, 300, 100, 100, 900][index],
+      dealtIn: true,
+      eliminatedAtHand: null
+    }));
+
+    ui.setScreen("table");
+    ui.renderTable({
+      roomCode: "K7M2QX",
+      myId: "p0",
+      myCards: ["AS", "KH"],
+      role: "host",
+      hostOnline: true,
+      state: {
+        roomId: "K7M2QX",
+        hostId: "p0",
+        status: "running",
+        phase: "flop",
+        handNo: 12,
+        settings: { startingChips: 10000, blindLevelMinutes: 10, maxPlayers: 9 },
+        board: ["7C", "8D", "9S"],
+        pot: 1700,
+        currentBet: 900,
+        minRaise: 600,
+        toActId: "p3",
+        dealerId: "p1",
+        smallBlindId: "p2",
+        bigBlindId: "p4",
+        blinds: { level: 2, small: 100, big: 200 },
+        nextBlindAtMs: Date.now() + 245000,
+        order: players.map((player) => player.id),
+        players,
+        lastHandResult: null,
+        lastAction: { handNo: 12, seq: 7, playerId: "p1", type: "RAISE", amount: 300, at: Date.now() },
+        rankings: [],
+        log: [
+          { handNo: 12, text: "Hand 12 · 100/200" },
+          { handNo: 12, text: "Alex raises to 300" },
+          { handNo: 12, text: "Blake calls 300" },
+          { handNo: 12, text: "Casey folds" },
+          { handNo: 12, text: "Evan all-in 900" },
+          { handNo: 12, text: "Flop 7♣ 8♦ 9♠" }
+        ]
+      }
+    });
+    ui.updateBlindTimer({
+      status: "running",
+      nextBlindAtMs: Date.now() + 245000
+    });
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const boardEl = document.getElementById("board");
+    const seatsEl = document.getElementById("seats");
+    const potEl = document.getElementById("pot");
+    const baseCtx = {
+      roomCode: "K7M2QX", myId: "p0", myCards: ["AS", "KH"], role: "host", hostOnline: true
+    };
+    const currentState = {
+      roomId: "K7M2QX", hostId: "p0", status: "running", phase: "river", handNo: 20,
+      settings: { startingChips: 10000, blindLevelMinutes: 10, maxPlayers: 9 },
+      board: ["7C", "8D", "9S", "4H", "5D"], pot: 1700, currentBet: 0, minRaise: 600,
+      toActId: null, dealerId: "p1", smallBlindId: "p2", bigBlindId: "p4",
+      blinds: { level: 2, small: 100, big: 200 }, nextBlindAtMs: Date.now() + 245000,
+      order: players.map((player) => player.id), players, lastHandResult: null, rankings: [],
+      log: [{ handNo: 20, text: "River 5♦" }]
+    };
+
+    const sample = {};
+    if (params.has("scene")) ui.__resetUiState();
+    if (params.get("scene") === "roundflow") {
+      const ctx = { ...baseCtx, myCards: ["TS", "KH"] };
+      const starting = { ...currentState, handNo: 20, phase: "preflop", board: [], pot: 15,
+        players: players.map((p, i) => ({ ...p, folded: false, allIn: false, roundBet: i === 0 ? 5 : i === 1 ? 10 : 0 })) };
+      ui.renderTable({ ...ctx, state: starting });
+      const slots = [...boardEl.children];
+      const opponentsCard = seatsEl.querySelector('[data-player-id="p1"] .card');
+      sample.blindAnimations = seatsEl.querySelectorAll(".bet.fly").length;
+      sample.dealingCards = seatsEl.querySelectorAll(".card.deal").length;
+      sample.opponentDealAnimation = getComputedStyle(opponentsCard).animationName;
+      sample.impactFont = getComputedStyle(seatsEl.querySelector(".rank")).fontFamily;
+      sample.rankWeight = getComputedStyle(seatsEl.querySelector(".rank")).fontWeight;
+      sample.tenIsT = seatsEl.querySelector(".rank").textContent === "T";
+      sample.handLabel = document.getElementById("handText").textContent;
+      sample.leaveLabel = document.getElementById("backHome").textContent;
+      ui.renderTable({ ...ctx, state: starting });
+      sample.dealNodeKept = opponentsCard === seatsEl.querySelector('[data-player-id="p1"] .card');
+      await sleep(1800);
+      const result = { ...currentState, phase: "hand_complete", toActId: null,
+        players: starting.players.map((p) => ({ ...p, roundBet: 0 })),
+        lastHandResult: { handNo: 20, payouts: { p0: 1700 }, showdownCards: { p0: ["TS", "KH"], p1: ["AC", "AH"] } } };
+      ui.renderTable({ ...ctx, state: result });
+      const winningSeat = seatsEl.querySelector('[data-player-id="p0"]');
+      sample.winnerTransform = getComputedStyle(winningSeat).transform;
+      sample.winnerGlow = getComputedStyle(winningSeat, "::after").animationName;
+      sample.winnerGlowLoops = getComputedStyle(winningSeat, "::after").animationIterationCount;
+      await sleep(2470);
+      sample.slotsDuringExit = boardEl.querySelectorAll(".card-slot").length;
+      sample.slotsKept = slots.every((slot, i) => slot === boardEl.children[i]);
+      sample.cardsExiting = boardEl.querySelectorAll(".card.clear").length;
+      sample.potVisibleDuringExit = getComputedStyle(potEl).opacity === "1" && getComputedStyle(potEl).display !== "none";
+      await sleep(750);
+      sample.slotsAfterExit = boardEl.querySelectorAll(".card-slot").length;
+      sample.cardsAfterExit = boardEl.querySelectorAll(".card").length;
+      sample.potAfterExit = document.getElementById("potText").textContent;
+      sample.potStillVisible = getComputedStyle(potEl).opacity === "1";
+      ui.renderTable({ ...ctx, state: { ...starting, handNo: 21 } });
+      sample.nextBlindAnimations = seatsEl.querySelectorAll(".bet.fly").length;
+      sample.nextDealingCards = seatsEl.querySelectorAll(".card.deal").length;
+      const finished = { ...result, handNo: 21, status: "finished", phase: "finished",
+        lastHandResult: { ...result.lastHandResult, handNo: 21 } };
+      ui.renderTable({ ...ctx, state: finished });
+      await sleep(4500);
+      sample.finalCardsStay = boardEl.querySelectorAll(".card").length === 5;
+      sample.finalNoExit = !boardEl.querySelector(".clear") && !seatsEl.querySelector(".card.clear");
+    }
+    if (params.get("scene") === "lifecycle") {
+      ui.__resetUiState();
+      const running = { ...currentState, players: players.map((player, index) => ({
+        ...player, folded: false, allIn: index === 0, roundBet: 100
+      })) };
+      const allinCtx = { ...baseCtx, state: running };
+      ui.renderTable(allinCtx);
+      const allinSeat = seatsEl.querySelector('[data-player-id="p0"]');
+      const breathing = () => allinSeat.getAnimations({ subtree: true }).find((a) => a.animationName === "allin-breathe");
+      const breath = breathing();
+      const opacity = () => Number(getComputedStyle(allinSeat, "::before").opacity);
+      sample.allinInfinite = getComputedStyle(allinSeat, "::before").animationIterationCount === "infinite";
+      sample.allinOpacityLow = opacity();
+      await sleep(850);
+      sample.allinOpacityHigh = opacity();
+      ui.renderTable({ ...allinCtx, state: { ...running, players: running.players.map((p) => ({ ...p, roundBet: 200 })) } });
+      sample.seatKept = allinSeat === seatsEl.querySelector('[data-player-id="p0"]');
+      sample.breathKept = Boolean(breath) && breath === breathing();
+      await sleep(2800);
+      sample.breathElapsed = breath?.currentTime;
+      sample.breathState = breath?.playState;
+      sample.breathMoreThanOneLoop = breath?.currentTime > 1800 && breath?.playState === "running";
+
+      const resultState = { ...running, status: "running", phase: "hand_complete", toActId: null,
+        players: running.players.map((p, i) => ({ ...p, roundBet: 0, status: i === 1 ? "eliminated" : "active", chips: i === 1 ? 0 : p.chips })),
+        lastHandResult: { handNo: 20, reason: "showdown", board: currentState.board,
+          payouts: { p0: 1700 }, showdownCards: { p0: ["AS", "KH"], p1: ["AC", "AH"] } }
+      };
+      const endedCtx = { ...baseCtx, state: resultState };
+      ui.renderTable(endedCtx);
+      const revealedCard = seatsEl.querySelector('[data-player-id="p1"] .card');
+      await sleep(90);
+      ui.renderTable(endedCtx);
+      sample.revealNodeKept = revealedCard === seatsEl.querySelector('[data-player-id="p1"] .card');
+      sample.eliminatedStillVisible = !seatsEl.querySelector('[data-player-id="p1"]').classList.contains("out");
+      await sleep(2380);
+      const clearingCard = boardEl.querySelector(".card.clear");
+      const exitAnimation = clearingCard?.getAnimations()[0];
+      sample.exitBoard = Boolean(clearingCard);
+      sample.exitOwnCards = Boolean(seatsEl.querySelector('[data-player-id="p0"] .card.clear'));
+      sample.exitEliminatedCards = Boolean(seatsEl.querySelector('[data-player-id="p1"] .card.clear'));
+      ui.renderTable(endedCtx);
+      sample.exitNodeKept = clearingCard === boardEl.querySelector(".card.clear");
+      sample.exitAnimationKept = exitAnimation === boardEl.querySelector(".card.clear")?.getAnimations()[0];
+      await sleep(750);
+      sample.finalBoardEmpty = !boardEl.querySelector(".card");
+      sample.finalHoleCardsEmpty = !seatsEl.querySelector(".card");
+      ui.renderTable({ ...baseCtx, state: { ...running, handNo: 21, phase: "preflop", board: [], lastHandResult: null } });
+      sample.newHandDeals = Boolean(seatsEl.querySelector('[data-player-id="p0"] .card.deal'));
+      sample.noPreviousBoardExit = !boardEl.querySelector(".card");
+      sample.headerLevel = document.getElementById("blindLevel").textContent;
+      sample.roomTooltip = document.getElementById("roomTooltip").textContent;
+    }
+    if (params.get("scene") === "showdown") {
+      ui.renderTable({
+        ...baseCtx,
+        state: {
+          ...currentState,
+          toActId: "p0",
+          players: players.map((player, index) => ({ ...player, roundBet: [0, 100, 0, 100, 100][index] }))
+        }
+      });
+      await sleep(80);
+      sample.beforeShowdownBets = /class="bet/.test(seatsEl.innerHTML);
+
+      ui.renderTable({
+        ...baseCtx,
+        state: {
+          ...currentState,
+          phase: "hand_complete",
+          players: players.map((player, index) => ({ ...player, roundBet: [0, 0, 0, 0, 0][index] })),
+          lastHandResult: {
+            handNo: 20, reason: "showdown", board: currentState.board,
+            pots: [{ amount: 1700, winners: ["p4"] }], payouts: { p4: 1700 },
+            winners: [{ id: "p4", name: "Evan", amount: 1700 }],
+            showdownCards: { p1: ["KC", "KD"], p4: ["AS", "AH"] },
+            evaluations: { p1: { name: "One Pair" }, p4: { name: "One Pair" } }
+          }
+        }
+      });
+      await sleep(80);
+      sample.showdownRevealFlip = (seatsEl.innerHTML.match(/class="card small[^"]*new"/g) || []).length;
+      sample.showdownRevealFlipLoose = (seatsEl.innerHTML.match(/class="card small[^"]*\bnew\b[^"]*"/g) || []).length;
+      sample.seatSlice = seatsEl.innerHTML.slice(0, 900);
+      sample.showdownShownRing = (seatsEl.innerHTML.match(/class="card small[^"]*shown"/g) || []).length;
+      sample.boardFlash = boardEl.classList.contains("showdown");
+      sample.winnerClasses = (seatsEl.innerHTML.match(/class="seat[^"]*winner"/g) || []).length;
+      sample.plusShown = /chips win/.test(seatsEl.innerHTML);
+      await sleep(1400);
+      sample.chipsRestored = /chips restore/.test(seatsEl.innerHTML);
+      sample.shownRingKept = (seatsEl.innerHTML.match(/class="card small[^"]*shown"/g) || []).length;
+    }
+    if (params.get("scene") === "transition") {
+      ui.renderTable({
+        ...baseCtx,
+        state: {
+          ...currentState,
+          phase: "hand_complete",
+          lastHandResult: {
+            handNo: 20, reason: "showdown", board: currentState.board,
+            pots: [{ amount: 1700, winners: ["p0"] }], payouts: { p0: 1700 },
+            winners: [{ id: "p0", name: "Alex", amount: 1700 }],
+            showdownCards: { p0: ["AS", "KH"] }, evaluations: {}
+          }
+        }
+      });
+      await sleep(60);
+      sample.plusShown = /chips win/.test(seatsEl.innerHTML);
+      await sleep(800);
+      sample.plusStillShown = /chips win/.test(seatsEl.innerHTML);
+      await sleep(500);
+      sample.chipsRestored = /chips restore/.test(seatsEl.innerHTML);
+      sample.chipsRestoredValue = (seatsEl.innerHTML.match(/chips restore">([^<]+)</) || [])[1] || null;
+
+      ui.renderTable({
+        ...baseCtx,
+        state: {
+          ...currentState,
+          handNo: 21,
+          phase: "preflop",
+          board: [],
+          pot: 0,
+          players: players.map((player) => ({ ...player, roundBet: 0 }))
+        }
+      });
+      await sleep(160);
+      sample.boardClearing = /card[^"]*clear/.test(boardEl.innerHTML);
+      sample.betClearing = /class="bet[^"]*clear/.test(seatsEl.innerHTML);
+      sample.potRetained = getComputedStyle(potEl).opacity === "1";
+      sample.dealSuppressed = !/card small deal/.test(seatsEl.innerHTML);
+      const exitingBoardCard = boardEl.querySelector(".card.clear");
+      ui.renderTable({
+        ...baseCtx,
+        state: {
+          ...currentState, handNo: 21, phase: "preflop", board: [], pot: 0,
+          players: players.map((player) => ({ ...player, roundBet: 0 }))
+        }
+      });
+      await sleep(60);
+      sample.clearNotReplayed = exitingBoardCard === boardEl.querySelector(".card.clear");
+      await sleep(500);
+      sample.boardAfterClear = boardEl.innerHTML.includes("card-slot");
+      sample.betsAfterClear = !/class="bet/.test(seatsEl.innerHTML);
+      sample.dealAfterClear = /card small deal/.test(seatsEl.innerHTML);
+    }
+
+    // 无头浏览器的窗口尺寸不稳定，这里可以直接指定桌面容器尺寸
+    const forcedW = Number(params.get("w"));
+    const forcedH = Number(params.get("h"));
+    if (forcedW && forcedH) {
+      const area = document.querySelector(".table-area");
+      area.style.width = `${forcedW}px`;
+      area.style.height = `${forcedH}px`;
+      area.style.aspectRatio = "auto";
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    window.dispatchEvent(new Event("resize"));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const rectOf = (element) => {
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return { x: Math.round(box.x), y: Math.round(box.y), w: Math.round(box.width), h: Math.round(box.height) };
+    };
+    const intersect = (a, b) => {
+      if (!a || !b) return null;
+      const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+      const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      return ox > 0 && oy > 0 ? `${ox}x${oy}` : null;
+    };
+    const seats = [...document.querySelectorAll(".seat")].map((element) => {
+      const box = rectOf(element);
+      const bet = rectOf(element.querySelector(".bet"));
+      const act = rectOf(element.querySelector(".act"));
+      return {
+        ...box,
+        name: element.querySelector(".name").textContent.trim(),
+        background: getComputedStyle(element).backgroundColor,
+        bet,
+        act,
+        betOnSeat: intersect(box, bet),
+        actOnSeat: intersect(box, act)
+      };
+    });
+    const overlaps = [];
+    for (let i = 0; i < seats.length; i += 1) {
+      for (let j = i + 1; j < seats.length; j += 1) {
+        const a = seats[i]; const b = seats[j];
+        const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        if (ox > 0 && oy > 0) overlaps.push(`${a.name}~${b.name}:${ox}x${oy}`);
+      }
+    }
+    const fontOf = (selector) => {
+      const element = document.querySelector(selector);
+      return element ? getComputedStyle(element).fontFamily : null;
+    };
+    await document.fonts.ready;
+    const metrics = {
+      loadedFonts: [...document.fonts].map((face) => ({ family: face.family, weight: face.weight, status: face.status })),
+      holeCardWidth: rectOf(document.querySelector(".mini-cards .card"))?.w,
+      holeCardHeight: rectOf(document.querySelector(".mini-cards .card"))?.h,
+      holeCardRankSize: document.querySelector(".mini-cards .rank") ? getComputedStyle(document.querySelector(".mini-cards .rank")).fontSize : null,
+      cardBackBorder: document.querySelector(".card.back") ? getComputedStyle(document.querySelector(".card.back")).border : null,
+      area: rectOf(document.querySelector(".table-area")),
+      board: rectOf(document.getElementById("board")),
+      pot: rectOf(document.getElementById("pot")),
+      blinds: rectOf(document.querySelector(".blinds")),
+      actions: rectOf(document.getElementById("actions")),
+      railPresent: Boolean(document.querySelector(".rail")),
+      seats,
+      overlaps,
+      betsOnSeat: seats.filter((seat) => seat.betOnSeat).map((seat) => `${seat.name}:${seat.betOnSeat}`),
+      actsOnSeat: seats.filter((seat) => seat.actOnSeat).map((seat) => `${seat.name}:${seat.actOnSeat}`),
+      seatsOnActions: seats
+        .filter((seat) => intersect(seat, rectOf(document.getElementById("actions"))))
+        .map((seat) => `${seat.name}:${intersect(seat, rectOf(document.getElementById("actions")))}`),
+      seatsOnBlinds: seats
+        .filter((seat) => intersect(seat, rectOf(document.querySelector(".blinds"))))
+        .map((seat) => `${seat.name}:${intersect(seat, rectOf(document.querySelector(".blinds")))}`),
+      blindsOnBoard: intersect(rectOf(document.querySelector(".blinds")), rectOf(document.getElementById("board"))),
+      blindsOnPot: intersect(rectOf(document.querySelector(".blinds")), rectOf(document.getElementById("pot"))),
+      chipsOnPot: seats
+        .filter((seat) => seat.bet)
+        .map((seat) => `${seat.name}:${intersect(seat.bet, rectOf(document.getElementById("pot"))) || "-"}`),
+      chipsOnBlinds: seats
+        .filter((seat) => seat.bet)
+        .map((seat) => `${seat.name}:${intersect(seat.bet, rectOf(document.querySelector(".blinds"))) || "-"}`),
+      chipsOnChips: (() => {
+        const bets = seats.filter((seat) => seat.bet).map((seat) => ({ name: seat.name, box: seat.bet }));
+        const hits = [];
+        for (let i = 0; i < bets.length; i += 1) {
+          for (let j = i + 1; j < bets.length; j += 1) {
+            const overlap = intersect(bets[i].box, bets[j].box);
+            if (overlap) hits.push(`${bets[i].name}~${bets[j].name}:${overlap}`);
+          }
+        }
+        return hits;
+      })(),
+      fonts: {
+        chips: fontOf(".chips"),
+        rank: fontOf(".card .rank"),
+        room: fontOf("#copyRoom"),
+        button: fontOf("#actions button"),
+        log: fontOf("#log p")
+      },
+      copyRoomBackground: getComputedStyle(document.getElementById("copyRoom")).backgroundColor,
+      blindTimerText: document.getElementById("blindTimer").textContent,
+      logLines: document.querySelectorAll("#log p").length,
+      boardCards: document.querySelectorAll("#board .card").length
+      ,
+      seatScale: document.documentElement.style.getPropertyValue("--seat-scale") || "1"
+      ,
+      seatTransition: getComputedStyle(document.querySelector(".seat")).transitionProperty,
+      sample
+    };
+    metrics.inner = [...document.querySelectorAll(".seat")].map((element) => {
+      const box = rectOf(element);
+      const avatar = rectOf(element.querySelector(".avatar"));
+      const cards = rectOf(element.querySelector(".mini-cards"));
+      const nameBox = rectOf(element.querySelector(".name"));
+      const chips = rectOf(element.querySelector(".chips"));
+      return {
+        name: element.querySelector(".name").textContent.trim(),
+        overflowBottom: chips ? Math.round(chips.y + chips.h - (box.y + box.h)) : null,
+        nameOverChips: intersect(nameBox, chips),
+        cardsOverChips: intersect(cards, chips),
+        avatarOverName: intersect(avatar, nameBox)
+      };
+    });
+    const pre = document.createElement("pre");
+    pre.id = "metrics";
+    pre.textContent = JSON.stringify(metrics);
+    document.body.appendChild(pre);
+  </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isRoomMember(roomId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid));
+    }
+
+    // Every client mutation is denied. The Admin SDK used by Cloud Functions
+    // bypasses these rules and is the only authority allowed to change games.
+    match /rooms/{roomId} {
+      allow get: if isRoomMember(roomId);
+      allow list: if false;
+      allow create, update, delete: if false;
+
+      match /players/{userId} {
+        allow get, list: if isRoomMember(roomId);
+        allow create, update, delete: if false;
+      }
+
+      // A signed-in member can read exactly one private-card document: their own.
+      // Collection listing is denied, so another player's cards cannot be queried.
+      match /private_cards/{userId} {
+        allow get: if isRoomMember(roomId) && request.auth.uid == userId;
+        allow list: if false;
+        allow create, update, delete: if false;
+      }
+
+      // Deck, burn cards, future board cards and the authoritative state live here.
+      // There is deliberately no client-readable rule for this subtree.
+      match /server/{document=**} {
+        allow read, write: if false;
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
